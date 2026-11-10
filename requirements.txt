@@ -3,3 +3,8 @@ beautifulsoup4
 selenium
 scrapy
 pandas
+matplotlib
+pytest
+ruff
+nbconvert
+ipykernel
