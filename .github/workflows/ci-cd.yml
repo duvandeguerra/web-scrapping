@@ -36,3 +36,56 @@ jobs:
 
       - name: Ejecutar pruebas automatizadas
         run: pytest -v
+
+  construir:
+    name: Generar datos e informe
+    needs: pruebas
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      - name: Instalar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Extracción con BeautifulSoup
+        run: python -m scraping.pipeline
+
+      - name: Extracción con Scrapy
+        run: scrapy runspider scripts/scrapy_spider.py -L INFO
+
+      - name: Ejecutar el notebook y convertirlo a HTML
+        run: >
+          jupyter nbconvert --to html --execute informe.ipynb
+          --output index.html --output-dir site
+          --ExecutePreprocessor.kernel_name=python3
+
+      - name: Publicar también los datos
+        run: cp datos/*.csv datos/*.json site/
+
+      - name: Empaquetar el sitio
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  desplegar:
+    name: Desplegar (CD)
+    needs: construir
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
